@@ -1,22 +1,58 @@
-# Data Notes
+# Data Notes: Chicago 311 Service Analysis
 
-Chicago 311 service requests, 2025, completed only: potholes, graffiti, rodent complaints. 181,673 rows, 39 columns.
+## About the data
+- Source: Chicago Data Portal, 311 Service Requests (dataset ID `v6vf-nfxy`)
+- Slice used: 2025 requests for three types: potholes, graffiti removal, rodent baiting
+- 181,673 rows in the raw file (about 69 MB, kept out of GitHub with `.gitignore`)
+- Wait time = closed date minus created date, in days
 
 ## Problems found
-- 21,353 rows are marked duplicate (repeat reports of the same problem), mostly potholes. Excluding them changes the pothole median from 12.9 to 7.0 days, so the choice must be explained.
-- 34,177 requests were closed in under 1 minute. Almost all graffiti (30,457) and some potholes (3,718).
-- 44 requests took over 365 days to close (longest 554 days). These outliers distort averages, so use medians.
-- zip_code is blank in 28.6% of rows. Use ward or community_area for area analysis instead (missing in only 0.3%).
-- created_department is blank in 70% of rows. Not used.
+
+- **34,177 requests closed in under 1 minute**: graffiti 30,457 and potholes 3,718. Real repairs cannot happen that fast.
+- **City-entered records distort the numbers.** The origins "Mass Entry" and "Generated In House" (33,461 rows) are created by the city, not by residents. About 30,407 of the instant closures are "Mass Entry" graffiti records.
+- **Repeat reports exist** (duplicate flag), especially for potholes.
+- **2,276 pothole requests made by phone call closed in under 1 minute.** Reason unknown.
 
 ## Cleaning decisions
-1. **Excluded origins "Mass Entry" and "Generated In House" (33,461 rows).** 30,407 of the 30,457 instant graffiti closures have origin Mass Entry. The city's column description says these origins come from the city's own operations, so they appear to be city-entered records, not residents waiting for a fix. Including them made graffiti look faster than residents experience it (average 1.52 days with them, 2.25 without). The cleaned data is the table requests_clean (148,212 rows). The raw table is untouched.
-2. **Repeat reports: kept for now.** Decision pending. For potholes, repeats average 47 days against 27 for originals, so the choice matters.
-3. **Pothole phone calls closed in under 1 minute (2,276 rows): kept for now.** Reason unknown. To be investigated.
 
-## First look (average days to resolve)
-| Type | Raw data | After cleaning (decision 1) |
+1. **Excluded origins "Mass Entry" and "Generated In House"** (33,461 rows). They are city-entered and do not represent a resident waiting for a fix. The cleaned table is `requests_clean` (148,212 rows).
+2. **Kept the 2,276 pothole phone-call requests** that closed in under 1 minute, for now. The reason is unknown and still to investigate.
+3. **Repeat reports:** kept in the database but excluded from the main wait-time numbers (see "Repeat reports" below).
+
+## First look: average wait (days)
+
+| Request type | Raw data | After cleaning |
 |---|---|---|
 | Graffiti | 1.52 | 2.25 |
 | Rodent | 4.69 | 4.69 |
 | Pothole | 34.31 | 36.59 |
+
+Cleaning mattered most for graffiti, because the instant city-entered closures were pulling its average down.
+
+## Average vs median (cleaned data)
+
+Averages are pulled up by a small group of very long waits, so the median (the middle wait) is a fairer "typical" number.
+
+| Request type | Median wait (days) |
+|---|---|
+| Pothole | 14.87 |
+| Rodent | 3.68 |
+| Graffiti | 0.97 |
+
+Potholes: average 36.59 days vs median 14.87 days.
+
+## Repeat reports (duplicates)
+
+After cleaning, 21,274 of 148,212 requests are flagged as repeat reports (duplicate = TRUE).
+
+| Request type | First reports | Repeat reports | Avg wait, first (days) | Avg wait, repeat (days) |
+|---|---|---|---|---|
+| Graffiti | 58,628 | 3,943 | 2.29 | 1.67 |
+| Pothole | 25,257 | 16,233 | 29.86 | 47.05 |
+| Rodent | 43,053 | 1,098 | 4.70 | 4.30 |
+
+**Decision:** the main wait-time numbers use first reports only (duplicate = FALSE), so each problem counts once. Repeat reports stay in the database and are analyzed separately.
+
+**Finding:** about 39% of pothole requests are repeat reports, and they wait much longer than first reports (47 vs 30 days). This may mean unfixed potholes get reported again and again, but the data does not prove that.
+
+**Open question:** how the city sets the duplicate flag. To check in the data dictionary.
